@@ -8,20 +8,17 @@
 // Postion values are calculated as 16 bit numbers and their
 // lower 4 bits are dropped when applying them to the sprite
 
-UINT8 sprite_data[] = { 
+uint8_t sprite_data[] = { 
     0x3C,0x3C,0x42,0x7E,0x99,0xFF,0xA9,0xFF,0x89,0xFF,0x89,0xFF,0x42,0x7E,0x3C,0x3C,
     0x3C,0x3C,0x42,0x7E,0xB9,0xFF,0x89,0xFF,0x91,0xFF,0xB9,0xFF,0x42,0x7E,0x3C,0x3C,
     0x3C,0x3C,0x42,0x7E,0x99,0xFF,0x89,0xFF,0x99,0xFF,0x89,0xFF,0x5A,0x7E,0x3C,0x3C,
     0x3C,0x3C,0x42,0x7E,0xA9,0xFF,0xA9,0xFF,0xB9,0xFF,0x89,0xFF,0x42,0x7E,0x3C,0x3C
-
 };
 
-joypads_t joypads;
-
 // sprite coords
-UINT16 PosX, PosY;
-INT16 SpdX, SpdY;
-UINT8 Jump;
+uint16_t PosX, PosY;
+int16_t SpdX, SpdY;
+uint8_t Jump;
 
 // main funxction
 void main(void) {
@@ -36,33 +33,30 @@ void main(void) {
 
     // show bkg and sprites
     SHOW_BKG; SHOW_SPRITES;
-
-    // init 2 joypads
-    joypad_init(1, &joypads);
  
     PosX = PosY = 64 << 4;
     Jump = SpdX = SpdY = 0;
 
     while(1) {        
-        // poll joypads
-        joypad_ex(&joypads);
-        
+        // poll joypad
+        uint8_t input = joypad();
+
         // game object
-        if (joypads.joy0 & J_UP) {
+        if (input & J_UP) {
             SpdY -= 2;
             if (SpdY < -64) SpdY = -64;
-        } else if (joypads.joy0 & J_DOWN) {
+        } else if (input & J_DOWN) {
             SpdY += 2;
             if (SpdY > 64) SpdY = 64;
         }
-        if (joypads.joy0 & J_LEFT) {
+        if (input & J_LEFT) {
             SpdX -= 2;
             if (SpdX < -64) SpdX = -64;
-        } else if (joypads.joy0 & J_RIGHT) {
+        } else if (input & J_RIGHT) {
             SpdX += 2;
             if (SpdX > 64) SpdX = 64;
         }
-        if ((joypads.joy0 & J_A) && (!Jump)) {
+        if ((input & J_A) && (!Jump)) {
             Jump = 3;
         }
 
