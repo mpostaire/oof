@@ -1,6 +1,2 @@
 .vscode
-
-*.map
-*.gb
-*.noi
-*.sym
+build/*

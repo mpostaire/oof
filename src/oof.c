@@ -1,5 +1,4 @@
 #include <gb/gb.h>
-#include <gb/sgb.h>
 
 #include <stdio.h>
 #include <gbdk/console.h>
@@ -37,7 +36,7 @@ void main(void) {
     PosX = PosY = 64 << 4;
     Jump = SpdX = SpdY = 0;
 
-    while(1) {        
+    while(1) {
         // poll joypad
         uint8_t input = joypad();
 
