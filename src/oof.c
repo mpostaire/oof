@@ -2,15 +2,17 @@
 #include <gb/cgb.h>
 
 #include <stdint.h>
+#define DEBUG_COLLISION
+
 #define SCREEN_OFFSET_X 8
 #define SCREEN_OFFSET_Y 16
-#define PLAYER_SIZE 8 
+#define PLAYER_SIZE 7 // always pick one less
 #define PIX_H 160
 #define PIX_V 144
 #define TMAP_X 20
 #define TMAP_Y 18 
 #define tile_row(py) (((py) >> 3)) - 2
-#define tile_index(px, tile_row) (((px) >> 3) - 1 + (tile_row) * TMAP_X)
+#define tile_index(px, py) (((px) >> 3) - 1 + (tile_row(py)) * TMAP_X)
 uint8_t sprite_data[] = {
     0x3C,0x3C,0x42,0x7E,0x99,0xFF,0xA9,0xFF,0x89,0xFF,0x89,0xFF,0x42,0x7E,0x3C,0x3C
 };
@@ -18,7 +20,9 @@ uint8_t sprite_data[] = {
 // white tile and horizontal stripe tile
 uint8_t tile_data[] = {
     0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
-    0xFF,0xFF,0xFF,0x00,0xFF,0xFF,0xFF,0x00,0xFF,0xFF,0xFF,0x00,0xFF,0xFF,0xFF,0x00
+    0xFF,0xFF,0xFF,0x00,0xFF,0xFF,0xFF,0x00,0xFF,0xFF,0xFF,0x00,0xFF,0xFF,0xFF,0x00,
+    0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
+
 };
 
 uint8_t tile_map[] = {
@@ -28,15 +32,15 @@ uint8_t tile_map[] = {
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0
@@ -132,24 +136,16 @@ static uint8_t player_walls_collision(void) {
     return 0;
 }
 static uint8_t is_position_colliding(uint8_t px, uint8_t py) {
-    uint8_t player_tr = tile_row(py);
-    uint16_t player_ti = tile_index(px, player_tr);
-    
+
+
     //each corner of the player can collide with 1 tile, enumerate the corners.
-    //up left is player_ti
-    //up right is player_ti + 1
-    uint16_t c1_ti = player_ti + 1;
-    //down left is player_ti + TMAP_X
-    uint16_t c2_ti = player_ti + TMAP_X;
-    //down right is c2_ti + 1
-    uint16_t c3_ti = c2_ti + 1;
-
-    return  tile_map[player_ti] +
-            tile_map[c1_ti] +
-            tile_map[c2_ti] +
-            tile_map[c3_ti] > 0;
-
-
+    //up left, up right, down left, down right.
+    uint8_t collision = 0;
+    collision += tile_map[tile_index(px, py)];
+    collision += tile_map[tile_index(px + PLAYER_SIZE, py)];
+    collision += tile_map[tile_index(px, py + PLAYER_SIZE)];
+    collision += tile_map[tile_index(px + PLAYER_SIZE, py + PLAYER_SIZE)];
+    return  collision > 0;
 }
 
 /**
@@ -164,16 +160,12 @@ static uint8_t alt_player_walls_collision(void) {
 
     if (is_position_colliding(px, player.y)) {
         player.vx = 0;
-        px = player.x;
         ret += 1;
     }
     if (is_position_colliding(player.x, py)) {
         player.vy = 0;
-        py = player.y;
         ret += 1;
     }
-    player.x = px;
-    player.y = py;
     return ret;
 }
 static void player_update(void) {
@@ -186,8 +178,8 @@ static void player_update(void) {
 
     alt_player_walls_collision();
 
-    // player.x += player.vx;
-    // player.y += player.vy;
+    player.x += player.vx;
+    player.y += player.vy;
 
     // decelerate
     if (player.vy >= 0) {
