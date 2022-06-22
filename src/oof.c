@@ -2,14 +2,15 @@
 #include <gb/cgb.h>
 
 #include <stdint.h>
-
+#define SCREEN_OFFSET_X 8
+#define SCREEN_OFFSET_Y 16
 #define PLAYER_SIZE 8 
 #define PIX_H 160
 #define PIX_V 144
 #define TMAP_X 20
 #define TMAP_Y 18 
-#define tile_row(py) (((py) >> 3))
-#define tile_index(px, tile_row) (((px) >> 3) + (tile_row) * TMAP_X)
+#define tile_row(py) (((py) >> 3)) - 2
+#define tile_index(px, tile_row) (((px) >> 3) - 1 + (tile_row) * TMAP_X)
 uint8_t sprite_data[] = {
     0x3C,0x3C,0x42,0x7E,0x99,0xFF,0xA9,0xFF,0x89,0xFF,0x89,0xFF,0x42,0x7E,0x3C,0x3C
 };
