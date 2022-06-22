@@ -7,15 +7,31 @@ uint8_t sprite_data[] = {
     0x3C,0x3C,0x42,0x7E,0x99,0xFF,0xA9,0xFF,0x89,0xFF,0x89,0xFF,0x42,0x7E,0x3C,0x3C
 };
 
-// black tile
+// white tile and horizontal stripe tile
 uint8_t tile_data[] = {
     0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
     0xFF,0xFF,0xFF,0x00,0xFF,0xFF,0xFF,0x00,0xFF,0xFF,0xFF,0x00,0xFF,0xFF,0xFF,0x00
 };
 
 uint8_t tile_map[] = {
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0
+    0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 };
 
 struct {
@@ -50,7 +66,7 @@ static void init(void) {
 
     // Load Background tiles and then map
     set_bkg_data(0, 2, tile_data);
-    set_bkg_tiles(0, 12, 20, 2, tile_map);
+    set_bkg_tiles(0, 0, 20, 20, tile_map);
 
     // (8, 16) is the top left corner
     player.x = 8;
@@ -90,9 +106,16 @@ static void handle_input(void) {
 }
 
 static uint8_t player_walls_collision(void) {
+    // TODO don't use a wall_t array but deduce if there is a collision by reading the tilemap
+
+    uint8_t px = player.x + player.vx;
+    uint8_t py = player.y + player.vy;
+
     for (uint8_t i = 0; i < sizeof(walls) / sizeof(wall_t); i++) {
-        if (player.x + 8 > walls[i].x && player.x < walls[i].x + walls[i].w
-            && player.y + 8 > walls[i].y && player.y < walls[i].y + walls[i].h) {
+        if (px + 8 > walls[i].x && px < walls[i].x + walls[i].w && py + 8 > walls[i].y && py < walls[i].y + walls[i].h) {
+            // TODO if speed > 1, the player can be stopped before the wall
+            player.vx = 0;
+            player.vy = 0;
             return 1;
         }
     }
@@ -107,8 +130,10 @@ static void player_update(void) {
         player.jump--;
     }
 
-    if (player_walls_collision())
-        player.vx = player.vy = 0;
+    // if (player_walls_collision())
+        // player.vx = player.vy = 0;
+
+    player_walls_collision();
 
     player.x += player.vx;
     player.y += player.vy;
