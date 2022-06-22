@@ -34,8 +34,8 @@ typedef struct {
 } wall_t;
 
 wall_t walls[] = {
-    { .x = 16, .y = 96, .w = 128, .h = 8 },
-    // { .x = 16, .y = 96, .w = 128, .h = 8 }
+    { .x = 96 + 8, .y = 96 + 16, .w = 8, .h = 8 },
+    { .x = 16 + 8, .y = 104 + 16, .w = 128, .h = 8 },
 };
 
 static void init(void) {
@@ -52,6 +52,7 @@ static void init(void) {
     set_bkg_data(0, 2, tile_data);
     set_bkg_tiles(0, 12, 20, 2, tile_map);
 
+    // (8, 16) is the top left corner
     player.x = 8;
     player.y = 16;
     player.jump = player.vx = player.vy = 0;
@@ -88,6 +89,16 @@ static void handle_input(void) {
     }
 }
 
+static uint8_t player_walls_collision(void) {
+    for (uint8_t i = 0; i < sizeof(walls) / sizeof(wall_t); i++) {
+        if (player.x + 8 > walls[i].x && player.x < walls[i].x + walls[i].w
+            && player.y + 8 > walls[i].y && player.y < walls[i].y + walls[i].h) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 static void player_update(void) {
     // jump
     if (player.jump) {
@@ -96,11 +107,11 @@ static void player_update(void) {
         player.jump--;
     }
 
+    if (player_walls_collision())
+        player.vx = player.vy = 0;
+
     player.x += player.vx;
     player.y += player.vy;
-
-    // gravity
-    // player.vy += 4;
 
     // decelerate
     if (player.vy >= 0) {
@@ -109,13 +120,6 @@ static void player_update(void) {
     if (player.vx >= 0) {
         if (player.vx) player.vx--;
     } else player.vx++;
-
-}
-
-static void player_collision(void) {
-    for (uint8_t i = 0; i < sizeof(walls) / sizeof(wall_t); i++) {
-        // TODO rectangle collision with different handling depending on the side of the wall
-    }
 }
 
 // main function
@@ -126,8 +130,6 @@ void main(void) {
         handle_input();
 
         player_update();
-
-        player_collision();
 
         // Translate to pixels and move sprite
         // Downshift by 4 bits to use the whole number values
