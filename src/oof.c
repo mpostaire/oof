@@ -18,17 +18,29 @@ uint8_t tile_map[] = {
     0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0
 };
 
-// sprite coords
-uint16_t pos_x, pos_y;
-int16_t vel_x, vel_y;
-uint8_t jump;
+struct {
+    uint16_t x;
+    uint16_t y;
+    int16_t vx;
+    int16_t vy;
+    uint8_t jump;
+} player;
 
-// main function
-void main(void) {
-    // init palettes
-    BGP_REG = 0xE4;
-    OBP0_REG = 0xE4;
-    OBP1_REG = 0xE4;
+typedef struct {
+    uint8_t x;
+    uint8_t y;
+    uint8_t w;
+    uint8_t h;
+} wall_t;
+
+wall_t walls[] = {
+    { .x = 16, .y = 96, .w = 128, .h = 8 },
+    // { .x = 16, .y = 96, .w = 128, .h = 8 }
+};
+
+static void init(void) {
+    // init dmg palettes
+    BGP_REG = OBP0_REG = OBP1_REG = 0xE4;
 
     // load tile data into VRAM
     set_sprite_data(0, 4, sprite_data);
@@ -44,53 +56,83 @@ void main(void) {
     SHOW_BKG;
     SHOW_SPRITES;
 
-    pos_x = pos_y = 64 << 4;
-    jump = vel_x = vel_y = 0;
+    player.x = 8 << 4;
+    player.y = 16 << 4;
+    player.jump = player.vx = player.vy = 0;
+}
+
+static void handle_input(void) {
+    // poll joypad
+    uint8_t input = joypad();
+
+    if (input & J_UP) {
+        player.vy -= 2;
+        if (player.vy < -64) player.vy = -64;
+    } else if (input & J_DOWN) {
+        player.vy += 2;
+        if (player.vy > 64) player.vy = 64;
+    }
+
+    if (input & J_LEFT) {
+        player.vx -= 2;
+        if (player.vx < -64) player.vx = -64;
+    } else if (input & J_RIGHT) {
+        player.vx += 2;
+        if (player.vx > 64) player.vx = 64;
+    }
+
+    if ((input & J_A) && (!player.jump)) {
+        player.jump = 3;
+    }
+}
+
+static void player_update(void) {
+    // jump
+    if (player.jump) {
+        player.vy -= 8;
+        if (player.vy < -32) player.vy = -32;
+        player.jump--;
+    }
+
+    player.x += player.vx;
+    player.y += player.vy;
+
+    // gravity
+    // player.vy += 4;
+
+    // decelerate
+    if (player.vy >= 0) {
+        if (player.vy) player.vy--;
+    } else player.vy++;
+    if (player.vx >= 0) {
+        if (player.vx) player.vx--;
+    } else player.vx++;
+
+}
+
+static void player_collision(void) {
+    uint8_t px = player.x >> 4;
+    uint8_t py = player.y >> 4;
+
+    for (uint8_t i = 0; i < sizeof(walls) / sizeof(wall_t); i++) {
+        // TODO rectangle collision with different handling depending on the side of the wall
+    }
+}
+
+// main function
+void main(void) {
+    init();
 
     while (1) {
-        // poll joypad
-        uint8_t input = joypad();
+        handle_input();
 
-        // game object
-        if (input & J_UP) {
-            vel_y -= 2;
-            if (vel_y < -64) vel_y = -64;
-        } else if (input & J_DOWN) {
-            vel_y += 2;
-            if (vel_y > 64) vel_y = 64;
-        }
-        if (input & J_LEFT) {
-            vel_x -= 2;
-            if (vel_x < -64) vel_x = -64;
-        } else if (input & J_RIGHT) {
-            vel_x += 2;
-            if (vel_x > 64) vel_x = 64;
-        }
-        if ((input & J_A) && (!jump)) {
-            jump = 3;
-        }
+        player_update();
 
-        // jump
-        if (jump) {
-            vel_y -= 8;
-            if (vel_y < -32) vel_y = -32;
-            jump--;
-        }
-
-        pos_x += vel_x;
-        pos_y += vel_y;
+        player_collision();
 
         // Translate to pixels and move sprite
         // Downshift by 4 bits to use the whole number values
-        move_sprite(0, pos_x >> 4, pos_y >> 4);
-
-        // decelerate
-        if (vel_y >= 0) {
-            if (vel_y) vel_y--;
-        } else vel_y++;
-        if (vel_x >= 0) {
-            if (vel_x) vel_x--;
-        } else vel_x++;
+        move_sprite(0, player.x >> 4, player.y >> 4);
 
         // Done processing, yield CPU and wait for start of next frame (VBlank)
         wait_vbl_done();
