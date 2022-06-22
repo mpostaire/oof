@@ -2,6 +2,7 @@
 #include <gb/cgb.h>
 
 #include <stdint.h>
+
 #define PLAYER_SIZE 8 
 #define PIX_H 160
 #define PIX_V 144
@@ -149,6 +150,7 @@ static uint8_t is_position_colliding(uint8_t px, uint8_t py) {
 
 
 }
+
 /**
  * @brief check the side of collision and stops the player's speed accordingly
  * @return number of directions colliding.
@@ -180,9 +182,6 @@ static void player_update(void) {
         if (player.vy < -8) player.vy = -8;
         player.jump--;
     }
-
-    // if (player_walls_collision())
-        // player.vx = player.vy = 0;
 
     alt_player_walls_collision();
 

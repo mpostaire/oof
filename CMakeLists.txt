@@ -5,7 +5,7 @@ project(OofProject
     VERSION 1.0
     DESCRIPTION "A brief CMake experiment"
     LANGUAGES C)
-set(CMAKE_C_FLAGS "-Wl-m -Wl-j -Wm-yS -Wm-yn\"OOF\"")
+set(CMAKE_C_FLAGS "-Wl-m -Wl-j -Wm-yS -Wm-yn\"OOF\" -debug")
 add_executable(oof.gb
     src/oof.c
 )
