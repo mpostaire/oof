@@ -19,10 +19,10 @@ uint8_t tile_map[] = {
 };
 
 struct {
-    uint16_t x;
-    uint16_t y;
-    int16_t vx;
-    int16_t vy;
+    uint8_t x;
+    uint8_t y;
+    int8_t vx;
+    int8_t vy;
     uint8_t jump;
 } player;
 
@@ -52,13 +52,15 @@ static void init(void) {
     set_bkg_data(0, 2, tile_data);
     set_bkg_tiles(0, 12, 20, 2, tile_map);
 
+    player.x = 8;
+    player.y = 16;
+    player.jump = player.vx = player.vy = 0;
+
     // show bkg and sprites
     SHOW_BKG;
     SHOW_SPRITES;
 
-    player.x = 8 << 4;
-    player.y = 16 << 4;
-    player.jump = player.vx = player.vy = 0;
+    DISPLAY_ON;
 }
 
 static void handle_input(void) {
@@ -66,19 +68,19 @@ static void handle_input(void) {
     uint8_t input = joypad();
 
     if (input & J_UP) {
-        player.vy -= 2;
-        if (player.vy < -64) player.vy = -64;
+        player.vy--;
+        if (player.vy < -32) player.vy = -32;
     } else if (input & J_DOWN) {
-        player.vy += 2;
-        if (player.vy > 64) player.vy = 64;
+        player.vy++;
+        if (player.vy > 32) player.vy = 32;
     }
 
     if (input & J_LEFT) {
-        player.vx -= 2;
-        if (player.vx < -64) player.vx = -64;
+        player.vx--;
+        if (player.vx < -32) player.vx = -32;
     } else if (input & J_RIGHT) {
-        player.vx += 2;
-        if (player.vx > 64) player.vx = 64;
+        player.vx++;
+        if (player.vx > 32) player.vx = 32;
     }
 
     if ((input & J_A) && (!player.jump)) {
@@ -89,8 +91,8 @@ static void handle_input(void) {
 static void player_update(void) {
     // jump
     if (player.jump) {
-        player.vy -= 8;
-        if (player.vy < -32) player.vy = -32;
+        player.vy -= 2;
+        if (player.vy < -8) player.vy = -8;
         player.jump--;
     }
 
@@ -111,9 +113,6 @@ static void player_update(void) {
 }
 
 static void player_collision(void) {
-    uint8_t px = player.x >> 4;
-    uint8_t py = player.y >> 4;
-
     for (uint8_t i = 0; i < sizeof(walls) / sizeof(wall_t); i++) {
         // TODO rectangle collision with different handling depending on the side of the wall
     }
@@ -132,7 +131,7 @@ void main(void) {
 
         // Translate to pixels and move sprite
         // Downshift by 4 bits to use the whole number values
-        move_sprite(0, player.x >> 4, player.y >> 4);
+        move_sprite(0, player.x, player.y);
 
         // Done processing, yield CPU and wait for start of next frame (VBlank)
         wait_vbl_done();
