@@ -2,7 +2,13 @@
 #include <gb/cgb.h>
 
 #include <stdint.h>
-
+#define PLAYER_SIZE 8 
+#define PIX_H 160
+#define PIX_V 144
+#define TMAP_X 20
+#define TMAP_Y 18 
+#define tile_row(py) (((py) >> 3))
+#define tile_index(px, tile_row) (((px) >> 3) + (tile_row) * TMAP_X)
 uint8_t sprite_data[] = {
     0x3C,0x3C,0x42,0x7E,0x99,0xFF,0xA9,0xFF,0x89,0xFF,0x89,0xFF,0x42,0x7E,0x3C,0x3C
 };
@@ -53,6 +59,8 @@ wall_t walls[] = {
     { .x = 96 + 8, .y = 96 + 16, .w = 8, .h = 8 },
     { .x = 16 + 8, .y = 104 + 16, .w = 128, .h = 8 },
 };
+
+
 
 static void init(void) {
     // init dmg palettes
@@ -112,7 +120,7 @@ static uint8_t player_walls_collision(void) {
     uint8_t py = player.y + player.vy;
 
     for (uint8_t i = 0; i < sizeof(walls) / sizeof(wall_t); i++) {
-        if (px + 8 > walls[i].x && px < walls[i].x + walls[i].w && py + 8 > walls[i].y && py < walls[i].y + walls[i].h) {
+        if (px + PLAYER_SIZE > walls[i].x && px < walls[i].x + walls[i].w && py + 8 > walls[i].y && py < walls[i].y + walls[i].h) {
             // TODO if speed > 1, the player can be stopped before the wall
             player.vx = 0;
             player.vy = 0;
@@ -121,7 +129,50 @@ static uint8_t player_walls_collision(void) {
     }
     return 0;
 }
+static uint8_t is_position_colliding(uint8_t px, uint8_t py) {
+    uint8_t player_tr = tile_row(py);
+    uint8_t player_ti = tile_index(px, player_tr);
+    
+    //each corner of the player can collide with 1 tile, enumerate the corners.
+    //up left is player_ti
+    //up right is player_ti + 1
+    uint8_t c1_ti = player_ti + 1;
+    //down left is player_ti + TMAP_X
+    uint8_t c2_ti = player_ti + TMAP_X;
+    //down right is c2_ti + 1
+    uint8_t c3_ti = c2_ti + 1;
 
+    return  tile_map[player_ti] +
+            tile_map[c1_ti] +
+            tile_map[c2_ti] +
+            tile_map[c3_ti] > 0;
+
+
+}
+/**
+ * @brief check the side of collision and stops the player's speed accordingly
+ * @return number of directions colliding.
+ */
+static uint8_t alt_player_walls_collision(void) {
+    // TODO don't use a wall_t array but deduce if there is a collision by reading the tilemap
+    uint8_t ret = 0;
+    uint8_t px = player.x + player.vx;
+    uint8_t py = player.y + player.vy;
+
+    if (is_position_colliding(px, player.y)) {
+        player.vx = 0;
+        px = player.x;
+        ret += 1;
+    }
+    if (is_position_colliding(player.x, py)) {
+        player.vy = 0;
+        py = player.y;
+        ret += 1;
+    }
+    player.x = px;
+    player.y = py;
+    return ret;
+}
 static void player_update(void) {
     // jump
     if (player.jump) {
@@ -133,7 +184,7 @@ static void player_update(void) {
     // if (player_walls_collision())
         // player.vx = player.vy = 0;
 
-    player_walls_collision();
+    alt_player_walls_collision();
 
     player.x += player.vx;
     player.y += player.vy;
