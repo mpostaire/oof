@@ -2,17 +2,17 @@
 #include <gb/cgb.h>
 
 #include <stdint.h>
-#define DEBUG_COLLISION
 
+#define SCREEN_WIDTH 160
+#define SCREEN_HEIGHT 144
 #define SCREEN_OFFSET_X 8
 #define SCREEN_OFFSET_Y 16
 #define PLAYER_SIZE 7 // always pick one less
-#define PIX_H 160
-#define PIX_V 144
-#define TMAP_X 20
-#define TMAP_Y 18 
-#define tile_row(py) (((py) >> 3)) - 2
-#define tile_index(px, py) (((px) >> 3) - 1 + (tile_row(py)) * TMAP_X)
+#define TILEMAP_WIDTH 20
+#define TILEMAP_HEIGHT 18
+
+#define PLAYER_POS_TO_TILE_ID(px, py) (((px) >> 3) - 1 + (((py) >> 3) - 2) * TILEMAP_WIDTH)
+
 uint8_t sprite_data[] = {
     0x3C,0x3C,0x42,0x7E,0x99,0xFF,0xA9,0xFF,0x89,0xFF,0x89,0xFF,0x42,0x7E,0x3C,0x3C
 };
@@ -20,9 +20,7 @@ uint8_t sprite_data[] = {
 // white tile and horizontal stripe tile
 uint8_t tile_data[] = {
     0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
-    0xFF,0xFF,0xFF,0x00,0xFF,0xFF,0xFF,0x00,0xFF,0xFF,0xFF,0x00,0xFF,0xFF,0xFF,0x00,
-    0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
-
+    0xFF,0xFF,0xFF,0x00,0xFF,0xFF,0xFF,0x00,0xFF,0xFF,0xFF,0x00,0xFF,0xFF,0xFF,0x00
 };
 
 uint8_t tile_map[] = {
@@ -41,9 +39,9 @@ uint8_t tile_map[] = {
     0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 };
 
 struct {
@@ -53,20 +51,6 @@ struct {
     int8_t vy;
     uint8_t jump;
 } player;
-
-typedef struct {
-    uint8_t x;
-    uint8_t y;
-    uint8_t w;
-    uint8_t h;
-} wall_t;
-
-wall_t walls[] = {
-    { .x = 96 + 8, .y = 96 + 16, .w = 8, .h = 8 },
-    { .x = 16 + 8, .y = 104 + 16, .w = 128, .h = 8 },
-};
-
-
 
 static void init(void) {
     // init dmg palettes
@@ -119,55 +103,35 @@ static void handle_input(void) {
     }
 }
 
-static uint8_t player_walls_collision(void) {
-    // TODO don't use a wall_t array but deduce if there is a collision by reading the tilemap
-
-    uint8_t px = player.x + player.vx;
-    uint8_t py = player.y + player.vy;
-
-    for (uint8_t i = 0; i < sizeof(walls) / sizeof(wall_t); i++) {
-        if (px + PLAYER_SIZE > walls[i].x && px < walls[i].x + walls[i].w && py + 8 > walls[i].y && py < walls[i].y + walls[i].h) {
-            // TODO if speed > 1, the player can be stopped before the wall
-            player.vx = 0;
-            player.vy = 0;
-            return 1;
-        }
-    }
-    return 0;
-}
-static uint8_t is_position_colliding(uint8_t px, uint8_t py) {
-
-
-    //each corner of the player can collide with 1 tile, enumerate the corners.
-    //up left, up right, down left, down right.
-    uint8_t collision = 0;
-    collision += tile_map[tile_index(px, py)];
-    collision += tile_map[tile_index(px + PLAYER_SIZE, py)];
-    collision += tile_map[tile_index(px, py + PLAYER_SIZE)];
-    collision += tile_map[tile_index(px + PLAYER_SIZE, py + PLAYER_SIZE)];
-    return  collision > 0;
+static inline uint8_t player_over_wall(uint8_t px, uint8_t py) {
+    // each corner of the player can collide with 1 tile, enumerate the corners.
+    // up left, up right, down left, down right.
+    return tile_map[PLAYER_POS_TO_TILE_ID(px, py)]
+        || tile_map[PLAYER_POS_TO_TILE_ID(px + PLAYER_SIZE, py)]
+        || tile_map[PLAYER_POS_TO_TILE_ID(px, py + PLAYER_SIZE)]
+        || tile_map[PLAYER_POS_TO_TILE_ID(px + PLAYER_SIZE, py + PLAYER_SIZE)];
 }
 
 /**
  * @brief check the side of collision and stops the player's speed accordingly
  * @return number of directions colliding.
  */
-static uint8_t alt_player_walls_collision(void) {
-    // TODO don't use a wall_t array but deduce if there is a collision by reading the tilemap
+static uint8_t player_walls_collision(void) {
     uint8_t ret = 0;
-    uint8_t px = player.x + player.vx;
-    uint8_t py = player.y + player.vy;
 
-    if (is_position_colliding(px, player.y)) {
+    if (player_over_wall(player.x + player.vx, player.y)) {
         player.vx = 0;
-        ret += 1;
+        ret++;
     }
-    if (is_position_colliding(player.x, py)) {
+
+    if (player_over_wall(player.x, player.y + player.vy)) {
         player.vy = 0;
-        ret += 1;
+        ret++;
     }
+
     return ret;
 }
+
 static void player_update(void) {
     // jump
     if (player.jump) {
@@ -176,7 +140,7 @@ static void player_update(void) {
         player.jump--;
     }
 
-    alt_player_walls_collision();
+    player_walls_collision();
 
     player.x += player.vx;
     player.y += player.vy;
