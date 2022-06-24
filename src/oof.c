@@ -118,16 +118,20 @@ static inline uint8_t player_corner_wall_collision(uint8_t px, uint8_t py) {
     // each corner of the player can collide with 1 tile, enumerate the corners.
     // up left, up right, down left, down right.
 
-    if (tile_map[PLAYER_POS_TO_TILEMAP_ID(px, py)])
+    int16_t i = PLAYER_POS_TO_TILEMAP_ID(px, py);
+    if (i >= 0 && tile_map[i])
         return CORNER_NW;
 
-    if (tile_map[PLAYER_POS_TO_TILEMAP_ID(px + PLAYER_SIZE, py)])
+    i = PLAYER_POS_TO_TILEMAP_ID(px + PLAYER_SIZE, py);
+    if (i >= 0 && tile_map[i])
         return CORNER_NE;
 
-    if (tile_map[PLAYER_POS_TO_TILEMAP_ID(px, py + PLAYER_SIZE)])
+    i = PLAYER_POS_TO_TILEMAP_ID(px, py + PLAYER_SIZE);
+    if (i >= 0 && tile_map[i])
         return CORNER_SW;
 
-    if (tile_map[PLAYER_POS_TO_TILEMAP_ID(px + PLAYER_SIZE, py + PLAYER_SIZE)])
+    i = PLAYER_POS_TO_TILEMAP_ID(px + PLAYER_SIZE, py + PLAYER_SIZE);
+    if (i >= 0 && tile_map[i])
         return CORNER_SE;
 
     return 0;
