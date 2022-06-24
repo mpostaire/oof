@@ -11,14 +11,25 @@
 #define TILEMAP_WIDTH 20
 #define TILEMAP_HEIGHT 18
 
-#define PLAYER_POS_TO_TILE_ID(px, py) (((px) >> 3) - 1 + (((py) >> 3) - 2) * TILEMAP_WIDTH)
+#define CORNER_NONE 0
+#define CORNER_NW 1
+#define CORNER_NE 2
+#define CORNER_SW 3
+#define CORNER_SE 4
 
-uint8_t sprite_data[] = {
+#define PLAYER_POS_TO_TILEMAP_ID(px, py) (((px) >> 3) - 1 + (((py) >> 3) - 2) * TILEMAP_WIDTH)
+
+// round up x to the nearest multiple of 8
+#define ROUND_UP8(x) (((x) + 7) & (-8))
+// round down x to the nearest multiple of 8
+#define ROUND_DOWN8(x) ((x) & (-8))
+
+const uint8_t sprite_data[] = {
     0x3C,0x3C,0x42,0x7E,0x99,0xFF,0xA9,0xFF,0x89,0xFF,0x89,0xFF,0x42,0x7E,0x3C,0x3C
 };
 
 // white tile and horizontal stripe tile
-uint8_t tile_data[] = {
+const uint8_t tile_data[] = {
     0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
     0xFF,0xFF,0xFF,0x00,0xFF,0xFF,0xFF,0x00,0xFF,0xFF,0xFF,0x00,0xFF,0xFF,0xFF,0x00
 };
@@ -64,7 +75,7 @@ static void init(void) {
 
     // Load Background tiles and then map
     set_bkg_data(0, 2, tile_data);
-    set_bkg_tiles(0, 0, 20, 20, tile_map);
+    set_bkg_tiles(0, 0, 20, 18, tile_map);
 
     // (8, 16) is the top left corner
     player.x = 8;
@@ -103,13 +114,23 @@ static void handle_input(void) {
     }
 }
 
-static inline uint8_t player_over_wall(uint8_t px, uint8_t py) {
+static inline uint8_t player_corner_wall_collision(uint8_t px, uint8_t py) {
     // each corner of the player can collide with 1 tile, enumerate the corners.
     // up left, up right, down left, down right.
-    return tile_map[PLAYER_POS_TO_TILE_ID(px, py)]
-        || tile_map[PLAYER_POS_TO_TILE_ID(px + PLAYER_SIZE, py)]
-        || tile_map[PLAYER_POS_TO_TILE_ID(px, py + PLAYER_SIZE)]
-        || tile_map[PLAYER_POS_TO_TILE_ID(px + PLAYER_SIZE, py + PLAYER_SIZE)];
+
+    if (tile_map[PLAYER_POS_TO_TILEMAP_ID(px, py)])
+        return CORNER_NW;
+
+    if (tile_map[PLAYER_POS_TO_TILEMAP_ID(px + PLAYER_SIZE, py)])
+        return CORNER_NE;
+
+    if (tile_map[PLAYER_POS_TO_TILEMAP_ID(px, py + PLAYER_SIZE)])
+        return CORNER_SW;
+
+    if (tile_map[PLAYER_POS_TO_TILEMAP_ID(px + PLAYER_SIZE, py + PLAYER_SIZE)])
+        return CORNER_SE;
+
+    return 0;
 }
 
 /**
@@ -119,12 +140,39 @@ static inline uint8_t player_over_wall(uint8_t px, uint8_t py) {
 static uint8_t player_walls_collision(void) {
     uint8_t ret = 0;
 
-    if (player_over_wall(player.x + player.vx, player.y)) {
+    uint8_t corner = 0;
+    if ((corner = player_corner_wall_collision(player.x + player.vx, player.y))) {
+        switch (corner) {
+        case CORNER_NW:
+        case CORNER_SW:
+            // collision at the left of the player
+            player.x = ROUND_UP8(player.x + player.vx);
+            break;
+        case CORNER_NE:
+        case CORNER_SE:
+            // collision at the right of the player
+            player.x = ROUND_DOWN8(player.x + player.vx);
+            break;
+        }
+
         player.vx = 0;
         ret++;
     }
 
-    if (player_over_wall(player.x, player.y + player.vy)) {
+    if ((corner = player_corner_wall_collision(player.x, player.y + player.vy))) {
+        switch (corner) {
+        case CORNER_NE:
+        case CORNER_NW:
+            // collision at the top of the player
+            player.y = ROUND_UP8(player.y + player.vy);
+            break;
+        case CORNER_SW:
+        case CORNER_SE:
+            // collision at the bottom of the player
+            player.y = ROUND_DOWN8(player.y + player.vy);
+            break;
+        }
+
         player.vy = 0;
         ret++;
     }
