@@ -49,18 +49,21 @@ uint8_t tile_map[] = {
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0,
+    0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 };
 
 struct {
-    uint8_t x;
-    uint8_t y;
-    int8_t vx;
-    int8_t vy;
+    uint16_t x;
+    uint16_t y;
+    int8_t screen_pos_x; // player.screen_pos_x == player.x >> 4
+    int8_t screen_pos_y; // player.screen_pos_y == player.y >> 4
+    int16_t vx;
+    int16_t vy;
     uint8_t jump;
+    uint8_t can_jump;
 } player;
 
 static void init(void) {
@@ -78,9 +81,12 @@ static void init(void) {
     set_bkg_tiles(0, 0, 20, 18, tile_map);
 
     // (8, 16) is the top left corner
-    player.x = 8;
-    player.y = 16;
+    player.screen_pos_x = 8;
+    player.screen_pos_y = 16;
+    player.x = player.screen_pos_x << 4;
+    player.y = player.screen_pos_y << 4;
     player.jump = player.vx = player.vy = 0;
+    player.can_jump = 0;
 
     // show bkg and sprites
     SHOW_BKG;
@@ -93,24 +99,28 @@ static void handle_input(void) {
     // poll joypad
     uint8_t input = joypad();
 
-    if (input & J_UP) {
-        player.vy--;
-        if (player.vy < -32) player.vy = -32;
-    } else if (input & J_DOWN) {
-        player.vy++;
-        if (player.vy > 32) player.vy = 32;
+    if (player.can_jump || player.jump) {
+        if (input & J_A) {
+            player.jump++;
+            if (player.jump > 12) {
+                player.jump = 0;
+                player.can_jump = 0;
+            }
+            player.vy -= 8;
+        } else {
+            player.jump = 0;
+            player.can_jump = 0;
+        }
     }
 
     if (input & J_LEFT) {
-        player.vx--;
-        if (player.vx < -32) player.vx = -32;
+        if (player.vx > -16)
+            player.vx -= 2;
     } else if (input & J_RIGHT) {
-        player.vx++;
-        if (player.vx > 32) player.vx = 32;
-    }
-
-    if ((input & J_A) && (!player.jump)) {
-        player.jump = 3;
+        if (player.vx < 16)
+            player.vx += 2;
+    } else {
+        player.vx = 0;
     }
 }
 
@@ -139,71 +149,61 @@ static inline uint8_t player_corner_wall_collision(uint8_t px, uint8_t py) {
 
 /**
  * @brief check the side of collision and stops the player's speed accordingly
- * @return number of directions colliding.
  */
-static uint8_t player_walls_collision(void) {
-    uint8_t ret = 0;
+static void player_walls_collision(void) {
+    uint8_t corner = CORNER_NONE;
+    player.can_jump = 0;
 
-    uint8_t corner = 0;
-    if ((corner = player_corner_wall_collision(player.x + player.vx, player.y))) {
+    if ((corner = player_corner_wall_collision((player.x + player.vx) >> 4, player.y >> 4))) {
         switch (corner) {
         case CORNER_NW:
         case CORNER_SW:
             // collision at the left of the player
-            player.x = ROUND_UP8(player.x + player.vx);
+            // player.x = ROUND_UP8(player.x + player.vx);
             break;
         case CORNER_NE:
         case CORNER_SE:
             // collision at the right of the player
-            player.x = ROUND_DOWN8(player.x + player.vx);
+            // player.x = ROUND_DOWN8(player.x + player.vx);
             break;
         }
 
         player.vx = 0;
-        ret++;
     }
 
-    if ((corner = player_corner_wall_collision(player.x, player.y + player.vy))) {
+    if ((corner = player_corner_wall_collision(player.x >> 4, (player.y + player.vy) >> 4))) {
         switch (corner) {
         case CORNER_NE:
         case CORNER_NW:
             // collision at the top of the player
-            player.y = ROUND_UP8(player.y + player.vy);
+            // player.y = ROUND_UP8(player.y + player.vy);
             break;
         case CORNER_SW:
         case CORNER_SE:
             // collision at the bottom of the player
-            player.y = ROUND_DOWN8(player.y + player.vy);
+            // player.y = ROUND_DOWN8(player.y + player.vy);
+            player.can_jump = 1;
+            player.jump = 0;
             break;
         }
 
         player.vy = 0;
-        ret++;
     }
-
-    return ret;
 }
 
 static void player_update(void) {
-    // jump
-    if (player.jump) {
-        player.vy -= 2;
-        if (player.vy < -8) player.vy = -8;
-        player.jump--;
-    }
+    // gravity
+    player.vy += 2;
+    if (player.vy > 16)
+        player.vy = 16;
 
     player_walls_collision();
 
     player.x += player.vx;
     player.y += player.vy;
 
-    // decelerate
-    if (player.vy >= 0) {
-        if (player.vy) player.vy--;
-    } else player.vy++;
-    if (player.vx >= 0) {
-        if (player.vx) player.vx--;
-    } else player.vx++;
+    player.screen_pos_x = player.x >> 4;
+    player.screen_pos_y = player.y >> 4;
 }
 
 // main function
@@ -217,7 +217,7 @@ void main(void) {
 
         // Translate to pixels and move sprite
         // Downshift by 4 bits to use the whole number values
-        move_sprite(0, player.x, player.y);
+        move_sprite(0, player.screen_pos_x, player.screen_pos_y);
 
         // Done processing, yield CPU and wait for start of next frame (VBlank)
         wait_vbl_done();
