@@ -7,16 +7,9 @@
 #define SCREEN_HEIGHT 144
 #define SCREEN_OFFSET_X 8
 #define SCREEN_OFFSET_Y 16
-#define SUBSPACE_MUL 4
-#define SUBSPACE_WIDTH 640
-#define SUBSPACE_HEIGHT 576
-#define SUBSPACE_OFFSET_X 32
-#define SUBSPACE_OFFSET_Y 64
-
 #define PLAYER_SIZE 7 // always pick one less
 #define TILEMAP_WIDTH 20
 #define TILEMAP_HEIGHT 18
-
 
 #define CORNER_NONE 0
 #define CORNER_NW 1
