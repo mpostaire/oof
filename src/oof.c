@@ -3,6 +3,13 @@
 
 #include <stdint.h>
 
+#define GRAVITY 2
+#define MAX_GRAVITY 16
+#define PLAYER_ACCEL 2
+#define PLAYER_MAX_ACCEL 16
+#define PLAYER_JUMP_ACCEL 8
+#define PLAYER_MAX_JUMP_TIME 8
+
 #define SCREEN_WIDTH 160
 #define SCREEN_HEIGHT 144
 #define SCREEN_OFFSET_X 8
@@ -60,7 +67,7 @@ struct {
     uint16_t y;
     int16_t vx;
     int16_t vy;
-    uint8_t jump;
+    uint8_t jump_time;
     uint8_t can_jump;
 } player;
 
@@ -79,9 +86,9 @@ static void init(void) {
     set_bkg_tiles(0, 0, 20, 18, tile_map);
 
     // (8, 16) is the top left corner
-    player.x = 8 << 4;
-    player.y = 16 << 4;
-    player.jump = player.vx = player.vy = 0;
+    player.x = SCREEN_OFFSET_X << 4;
+    player.y = SCREEN_OFFSET_Y << 4;
+    player.jump_time = player.vx = player.vy = 0;
     player.can_jump = 0;
 
     // show bkg and sprites
@@ -95,26 +102,26 @@ static void handle_input(void) {
     // poll joypad
     uint8_t input = joypad();
 
-    if (player.can_jump || player.jump) {
+    if (player.can_jump || player.jump_time) {
         if (input & J_A) {
-            player.jump++;
-            if (player.jump > 8) {
-                player.jump = 0;
+            player.jump_time++;
+            if (player.jump_time > PLAYER_MAX_JUMP_TIME) {
+                player.jump_time = 0;
                 player.can_jump = 0;
             }
-            player.vy -= 8;
+            player.vy -= PLAYER_JUMP_ACCEL;
         } else {
-            player.jump = 0;
+            player.jump_time = 0;
             player.can_jump = 0;
         }
     }
 
     if (input & J_LEFT) {
-        if (player.vx > -16)
-            player.vx -= 2;
+        if (player.vx > -PLAYER_MAX_ACCEL)
+            player.vx -= PLAYER_ACCEL;
     } else if (input & J_RIGHT) {
-        if (player.vx < 16)
-            player.vx += 2;
+        if (player.vx < PLAYER_MAX_ACCEL)
+            player.vx += PLAYER_ACCEL;
     } else {
         player.vx = 0;
     }
@@ -177,7 +184,7 @@ static void player_walls_collision(void) {
             player.y = ROUND_UP8(new_screen_y) << 4;
             // cancel jump when the player hits a ceiling
             player.can_jump = 0;
-            player.jump = 0;
+            player.jump_time = 0;
             break;
         case CORNER_SW:
         case CORNER_SE:
@@ -185,7 +192,7 @@ static void player_walls_collision(void) {
             player.y = ROUND_DOWN8(new_screen_y) << 4;
             // can jump when the the player hits the ground
             player.can_jump = 1;
-            player.jump = 0;
+            player.jump_time = 0;
             break;
         }
 
@@ -195,9 +202,9 @@ static void player_walls_collision(void) {
 
 static void player_update(void) {
     // gravity
-    player.vy += 2;
-    if (player.vy > 16)
-        player.vy = 16;
+    player.vy += GRAVITY;
+    if (player.vy > MAX_GRAVITY)
+        player.vy = MAX_GRAVITY;
 
     player_walls_collision();
 
