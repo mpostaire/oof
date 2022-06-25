@@ -58,8 +58,6 @@ uint8_t tile_map[] = {
 struct {
     uint16_t x;
     uint16_t y;
-    int8_t screen_pos_x; // player.screen_pos_x == player.x >> 4
-    int8_t screen_pos_y; // player.screen_pos_y == player.y >> 4
     int16_t vx;
     int16_t vy;
     uint8_t jump;
@@ -81,10 +79,8 @@ static void init(void) {
     set_bkg_tiles(0, 0, 20, 18, tile_map);
 
     // (8, 16) is the top left corner
-    player.screen_pos_x = 8;
-    player.screen_pos_y = 16;
-    player.x = player.screen_pos_x << 4;
-    player.y = player.screen_pos_y << 4;
+    player.x = 8 << 4;
+    player.y = 16 << 4;
     player.jump = player.vx = player.vy = 0;
     player.can_jump = 0;
 
@@ -102,7 +98,7 @@ static void handle_input(void) {
     if (player.can_jump || player.jump) {
         if (input & J_A) {
             player.jump++;
-            if (player.jump > 12) {
+            if (player.jump > 8) {
                 player.jump = 0;
                 player.can_jump = 0;
             }
@@ -152,36 +148,42 @@ static inline uint8_t player_corner_wall_collision(uint8_t px, uint8_t py) {
  */
 static void player_walls_collision(void) {
     uint8_t corner = CORNER_NONE;
+    uint16_t new_screen_x = (player.x + player.vx) >> 4;
+    uint16_t new_screen_y = (player.y + player.vy) >> 4;
     player.can_jump = 0;
 
-    if ((corner = player_corner_wall_collision((player.x + player.vx) >> 4, player.y >> 4))) {
+    if ((corner = player_corner_wall_collision(new_screen_x, player.y >> 4))) {
         switch (corner) {
         case CORNER_NW:
         case CORNER_SW:
             // collision at the left of the player
-            // player.x = ROUND_UP8(player.x + player.vx);
+            player.x = ROUND_UP8(new_screen_x) << 4;
             break;
         case CORNER_NE:
         case CORNER_SE:
             // collision at the right of the player
-            // player.x = ROUND_DOWN8(player.x + player.vx);
+            player.x = ROUND_DOWN8(new_screen_x) << 4;
             break;
         }
 
         player.vx = 0;
     }
 
-    if ((corner = player_corner_wall_collision(player.x >> 4, (player.y + player.vy) >> 4))) {
+    if ((corner = player_corner_wall_collision(player.x >> 4, new_screen_y))) {
         switch (corner) {
         case CORNER_NE:
         case CORNER_NW:
             // collision at the top of the player
-            // player.y = ROUND_UP8(player.y + player.vy);
+            player.y = ROUND_UP8(new_screen_y) << 4;
+            // cancel jump when the player hits a ceiling
+            player.can_jump = 0;
+            player.jump = 0;
             break;
         case CORNER_SW:
         case CORNER_SE:
             // collision at the bottom of the player
-            // player.y = ROUND_DOWN8(player.y + player.vy);
+            player.y = ROUND_DOWN8(new_screen_y) << 4;
+            // can jump when the the player hits the ground
             player.can_jump = 1;
             player.jump = 0;
             break;
@@ -201,9 +203,6 @@ static void player_update(void) {
 
     player.x += player.vx;
     player.y += player.vy;
-
-    player.screen_pos_x = player.x >> 4;
-    player.screen_pos_y = player.y >> 4;
 }
 
 // main function
@@ -217,7 +216,7 @@ void main(void) {
 
         // Translate to pixels and move sprite
         // Downshift by 4 bits to use the whole number values
-        move_sprite(0, player.screen_pos_x, player.screen_pos_y);
+        move_sprite(0, player.x >> 4, player.y >> 4);
 
         // Done processing, yield CPU and wait for start of next frame (VBlank)
         wait_vbl_done();
