@@ -3,8 +3,8 @@
 
 #include <stdint.h>
 
-#define GRAVITY 2
-#define MAX_GRAVITY 16
+#define GRAVITY 1
+#define MAX_GRAVITY 64
 #define PLAYER_ACCEL 2
 #define PLAYER_MAX_ACCEL 16
 #define PLAYER_JUMP_ACCEL 8
