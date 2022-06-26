@@ -72,6 +72,11 @@ struct {
 } player;
 
 static void init(void) {
+    // sound (these registers must be set in this order!)
+    NR52_REG = 0x80;
+    NR50_REG = 0x77;
+    NR51_REG = 0xFF;
+
     // init dmg palettes
     BGP_REG = OBP0_REG = OBP1_REG = 0xE4;
 
@@ -98,6 +103,14 @@ static void init(void) {
     DISPLAY_ON;
 }
 
+static inline void play_jump_sound(void) {
+    NR10_REG = 0x16;
+    NR11_REG = 0x40;
+    NR12_REG = 0x73;
+    NR13_REG = 0x00;
+    NR14_REG = 0xC3;
+}
+
 static void handle_input(void) {
     // poll joypad
     uint8_t input = joypad();
@@ -105,6 +118,8 @@ static void handle_input(void) {
     if (player.can_jump || player.jump_time) {
         if (input & J_A) {
             player.jump_time++;
+            if (player.jump_time == 1)
+                play_jump_sound();
             if (player.jump_time > PLAYER_MAX_JUMP_TIME) {
                 player.jump_time = 0;
                 player.can_jump = 0;
