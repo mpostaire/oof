@@ -5,10 +5,10 @@
 
 #define GRAVITY 1
 #define MAX_GRAVITY 64
-#define PLAYER_ACCEL 2
+#define PLAYER_ACCEL 4
 #define PLAYER_MAX_ACCEL 16
 #define PLAYER_JUMP_ACCEL 8
-#define PLAYER_MAX_JUMP_TIME 8
+#define PLAYER_MAX_JUMP_TIME 3
 
 #define SCREEN_WIDTH 160
 #define SCREEN_HEIGHT 144
@@ -24,7 +24,7 @@
 #define CORNER_SW 3
 #define CORNER_SE 4
 
-#define PLAYER_POS_TO_TILEMAP_ID(px, py) (((px) >> 3) - 1 + (((py) >> 3) - 2) * TILEMAP_WIDTH)
+#define SCREEN_POS_TO_TILEMAP_ID(x, y) (((x) >> 3) - 1 + (((y) >> 3) - 2) * TILEMAP_WIDTH)
 
 // round up x to the nearest multiple of 8
 #define ROUND_UP8(x) (((x) + 7) & (-8))
@@ -69,13 +69,14 @@ struct {
     int16_t vy;
     uint8_t jump_time;
     uint8_t can_jump;
+    uint8_t tile_cooldown;
 } player;
 
 static void init(void) {
     // sound (these registers must be set in this order!)
-    NR52_REG = 0x80;
-    NR50_REG = 0x77;
-    NR51_REG = 0xFF;
+    NR52_REG = 0x80; // turns on sound
+    NR50_REG = 0x77; // sets the volume for both left and right channel to max
+    NR51_REG = 0xFF; // all 4 sound channels enabled for both left and right channel
 
     // init dmg palettes
     BGP_REG = OBP0_REG = OBP1_REG = 0xE4;
@@ -95,6 +96,7 @@ static void init(void) {
     player.y = SCREEN_OFFSET_Y << 4;
     player.jump_time = player.vx = player.vy = 0;
     player.can_jump = 0;
+    player.tile_cooldown = 0;
 
     // show bkg and sprites
     SHOW_BKG;
@@ -109,6 +111,15 @@ static inline void play_jump_sound(void) {
     NR12_REG = 0x73;
     NR13_REG = 0x00;
     NR14_REG = 0xC3;
+}
+
+static inline void place_tile(uint8_t tile) {
+    // TODO tile_map array out of bounds check
+    uint8_t tile_x = (player.x >> 4) + PLAYER_SIZE + 1;
+    uint8_t tile_y = player.y >> 4;
+    int16_t i = SCREEN_POS_TO_TILEMAP_ID(tile_x, tile_y);
+    tile_map[i] = tile;
+    set_bkg_tiles((tile_x >> 3) - 1, (tile_y >> 3) - 2, 1, 1, &tile);
 }
 
 static void handle_input(void) {
@@ -131,6 +142,11 @@ static void handle_input(void) {
         }
     }
 
+    if (input & J_B && player.tile_cooldown == 0) {
+        place_tile(1); // places a wall -- place_tile(0) removes a wall (places an "air" tile)
+        player.tile_cooldown = 16;
+    }
+
     if (input & J_LEFT) {
         if (player.vx > -PLAYER_MAX_ACCEL)
             player.vx -= PLAYER_ACCEL;
@@ -146,19 +162,19 @@ static inline uint8_t player_corner_wall_collision(uint8_t px, uint8_t py) {
     // each corner of the player can collide with 1 tile, enumerate the corners.
     // up left, up right, down left, down right.
 
-    int16_t i = PLAYER_POS_TO_TILEMAP_ID(px, py);
+    int16_t i = SCREEN_POS_TO_TILEMAP_ID(px, py);
     if (i >= 0 && tile_map[i])
         return CORNER_NW;
 
-    i = PLAYER_POS_TO_TILEMAP_ID(px + PLAYER_SIZE, py);
+    i = SCREEN_POS_TO_TILEMAP_ID(px + PLAYER_SIZE, py);
     if (i >= 0 && tile_map[i])
         return CORNER_NE;
 
-    i = PLAYER_POS_TO_TILEMAP_ID(px, py + PLAYER_SIZE);
+    i = SCREEN_POS_TO_TILEMAP_ID(px, py + PLAYER_SIZE);
     if (i >= 0 && tile_map[i])
         return CORNER_SW;
 
-    i = PLAYER_POS_TO_TILEMAP_ID(px + PLAYER_SIZE, py + PLAYER_SIZE);
+    i = SCREEN_POS_TO_TILEMAP_ID(px + PLAYER_SIZE, py + PLAYER_SIZE);
     if (i >= 0 && tile_map[i])
         return CORNER_SE;
 
@@ -225,6 +241,9 @@ static void player_update(void) {
 
     player.x += player.vx;
     player.y += player.vy;
+
+    if (player.tile_cooldown > 0)
+        player.tile_cooldown--;
 }
 
 // main function
